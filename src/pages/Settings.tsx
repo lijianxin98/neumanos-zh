@@ -1,0 +1,776 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { format } from 'date-fns';
+import {
+  Settings as SettingsIcon,
+  Clock,
+  CheckSquare,
+  FileText,
+  HardDrive,
+  Bot,
+  Sliders,
+  ChevronRight,
+  FolderTree,
+  Palette,
+  Bell,
+  Database,
+  Keyboard,
+  Info,
+  PenTool,
+  ChevronDown,
+  Code,
+  Cloud,
+} from 'lucide-react';
+import {
+  exportBrainFile,
+  importBrainFile,
+  validateBrainFile,
+  formatFileSize,
+} from '../services/brainBackup';
+import {
+  loadPreferences,
+  getBackupHistory,
+  shouldShowBackupReminder,
+  getTimeSinceLastBackup,
+  addHistoryEntry,
+  type BackupPreferences,
+  type BackupHistoryEntry,
+} from '../services/backupPreferences';
+import { PageContent } from '../components/PageContent';
+import { indexedDBService } from '../services/indexedDB';
+import { exportToICS, importFromICS, downloadICS, readICSFile } from '../services/icsImportExport';
+import { requestNotificationPermission } from '../services/eventReminders';
+import { useCalendarStore } from '../stores/useCalendarStore';
+import { BackupSettings } from '../components/BackupSettings';
+import { PresetManager } from '../components/PresetManager';
+import { logger } from '../services/logger';
+import { ImportData } from '../widgets/Settings/ImportData';
+import { DailyNotesSettings } from '../widgets/Settings/DailyNotesSettings';
+import { TemplateSettings } from '../widgets/Settings/TemplateSettings';
+import { ExportSettings } from '../widgets/Settings/ExportSettings';
+import { AboutSettings } from '../widgets/Settings/AboutSettings';
+import { AccountSettings } from '../widgets/Settings/AccountSettings';
+import { SiteWideSettings } from '../widgets/Settings/SiteWideSettings';
+import { ThemeSettings } from '../widgets/Settings/ThemeSettings';
+import { TaskManagementSettings } from '../widgets/Settings/TaskManagementSettings';
+import { QuickActionsSection } from '../widgets/Settings/QuickActionsSection';
+import { AutoSaveSettings } from '../widgets/Settings/AutoSaveSettings';
+import { BackupHistorySection } from '../widgets/Settings/BackupHistorySection';
+import { BackupOptionsSection } from '../widgets/Settings/BackupOptionsSection';
+import { TimeTrackingPanelSettings } from '../widgets/Settings/TimeTrackingPanelSettings';
+import CustomFieldsSettings from '../components/CustomFieldsSettings';
+import MemberSettings from '../components/MemberSettings';
+import { AutoTrackingSettings } from '../components/AutoTrackingSettings';
+import { AITerminalSettingsSection } from '../widgets/Settings/AITerminalSettingsSection';
+import { StorageInfoSection } from '../widgets/Settings/StorageInfoSection';
+import { DashboardSettingsSection } from '../widgets/Settings/DashboardSettingsSection';
+import { CalendarNotificationsSection } from '../widgets/Settings/CalendarNotificationsSection';
+import { CalendarImportExportSection } from '../widgets/Settings/CalendarImportExportSection';
+import { CalendarManagementSection } from '../widgets/Settings/CalendarManagementSection';
+import { WidgetSettingsSection } from '../widgets/Settings/WidgetSettingsSection';
+import { ProjectSettings } from '../widgets/Settings/ProjectSettings';
+import { DataManagementSection } from '../widgets/Settings/DataManagementSection';
+import { MarkdownImportSection } from '../widgets/Settings/MarkdownImportSection';
+import { NotionImportSection } from '../widgets/Settings/NotionImportSection';
+import { KeyboardShortcutsSection } from '../widgets/Settings/KeyboardShortcutsSection';
+import { AccentColorSection } from '../widgets/Settings/AccentColorSection';
+import { SelectiveExportSection } from '../widgets/Settings/SelectiveExportSection';
+import { NotificationPreferencesSection } from '../widgets/Settings/NotificationPreferencesSection';
+import { DefaultViewsSection } from '../widgets/Settings/DefaultViewsSection';
+import { AppPreferencesSection } from '../widgets/Settings/AppPreferencesSection';
+import { SavedLayoutsSection } from '../widgets/Settings/SavedLayoutsSection';
+import { ImportExportPanel } from '../components/settings/ImportExportPanel';
+import { CustomCSSEditor } from '../components/settings/CustomCSSEditor';
+import { AliyunDriveSettings } from '../widgets/Settings/AliyunDriveSettings';
+
+const log = logger.module('设置');
+
+/**
+ * Settings Tab Configuration
+ */
+const SETTINGS_TABS = [
+  { id: 'general', label: '常规', icon: SettingsIcon },
+  { id: 'appearance', label: '外观', icon: Palette },
+  { id: 'editor', label: '编辑器', icon: PenTool },
+  { id: 'projects', label: '项目', icon: FolderTree },
+  { id: 'time', label: '工时跟踪', icon: Clock },
+  { id: 'tasks', label: '任务', icon: CheckSquare },
+  { id: 'notes', label: '笔记与日历', icon: FileText },
+  { id: 'notifications', label: '通知', icon: Bell },
+  { id: 'data', label: '数据管理', icon: Database },
+  { id: 'backup', label: '备份与数据', icon: HardDrive },
+  { id: 'cloud', label: '云盘备份', icon: Cloud },
+  { id: 'shortcuts', label: '键盘快捷键', icon: Keyboard },
+  { id: 'ai', label: 'AI 服务商', icon: Bot },
+  { id: 'advanced', label: '高级', icon: Sliders },
+  { id: 'about', label: '关于', icon: Info },
+] as const;
+
+type SettingsTabId = (typeof SETTINGS_TABS)[number]['id'];
+
+/**
+ * Collapsible Advanced Customization section for the Appearance tab.
+ */
+const AdvancedCustomizationSection: React.FC = () => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="bento-card overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center gap-3 p-6 text-left hover:bg-surface-light-elevated/50 dark:hover:bg-surface-dark-elevated/50 transition-colors"
+      >
+        <Code className="w-5 h-5 text-accent-primary" />
+        <div className="flex-1">
+          <h2 className="text-lg font-semibold text-text-light-primary dark:text-text-dark-primary">
+            高级自定义
+          </h2>
+          <p className="text-sm text-text-light-secondary dark:text-text-dark-secondary mt-0.5">
+            为高级用户注入自定义 CSS
+          </p>
+        </div>
+        <ChevronDown
+          className={`w-5 h-5 text-text-light-tertiary dark:text-text-dark-tertiary transition-transform duration-200 ${
+            isOpen ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-6 pb-6">
+              <CustomCSSEditor />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+/**
+ * Settings Page - Modern Tab-Based Layout
+ * Local-first privacy with comprehensive settings management
+ */
+export const Settings: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const currentTab: SettingsTabId = searchParams.get('code')
+    ? 'cloud'
+    : SETTINGS_TABS.some((t) => t.id === requestedTab)
+      ? (requestedTab as SettingsTabId)
+      : 'general';
+
+  // State management
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info' | 'warning'; text: string } | null>(null);
+
+  // Preferences
+  const [preferences, setPreferences] = useState<BackupPreferences | null>(null);
+  const [backupHistory, setBackupHistory] = useState<BackupHistoryEntry[]>([]);
+  const [timeSinceLastBackup, setTimeSinceLastBackup] = useState<string | null>(null);
+  const [backupReminder, setBackupReminder] = useState<{ show: boolean; daysSinceLastBackup?: number; message?: string } | null>(null);
+
+  // Storage Info
+  const [storageInfo, setStorageInfo] = useState<{
+    usageFormatted: string;
+    availableFormatted: string;
+    quotaFormatted: string;
+    percentUsed: number;
+  } | null>(null);
+
+  // New Browser Warning
+  const [showNewBrowserWarning, setShowNewBrowserWarning] = useState(false);
+
+  // Dashboard Settings modal
+  const [showPresetManager, setShowPresetManager] = useState(false);
+
+  // Calendar Import/Export
+  const [isExportingCalendar, setIsExportingCalendar] = useState(false);
+  const [isImportingCalendar, setIsImportingCalendar] = useState(false);
+  const events = useCalendarStore((s) => s.events);
+  const importEvents = useCalendarStore((s) => s.importEvents);
+
+  // Notification Permission
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [requestingPermission, setRequestingPermission] = useState(false);
+
+  // Check notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
+
+  const loadAllData = useCallback(async () => {
+    // Load preferences
+    const prefs = await loadPreferences();
+    setPreferences(prefs);
+
+    // Load backup history
+    const history = await getBackupHistory();
+    setBackupHistory(history);
+
+    // Get time since last backup
+    const timeSince = await getTimeSinceLastBackup();
+    setTimeSinceLastBackup(timeSince);
+
+    // Check backup reminder
+    const reminder = await shouldShowBackupReminder();
+    setBackupReminder(reminder);
+
+    // Load storage quota info
+    try {
+      const quota = await indexedDBService.getQuota();
+      setStorageInfo(quota);
+
+      // Check if this is a new browser (no data in IndexedDB)
+      const keys = await indexedDBService.getAllKeys();
+      const hasAnyData = keys.length > 0;
+
+      // Show new browser warning if no data AND not dismissed
+      const dismissed = localStorage.getItem('new-browser-warning-dismissed');
+      if (!hasAnyData && !dismissed) {
+        setShowNewBrowserWarning(true);
+      }
+    } catch (error) {
+      log.error('加载存储信息失败', { error });
+    }
+  }, []);
+
+  // Load data on mount
+  useEffect(() => {
+    document.title = '设置 - 超级工作台';
+    loadAllData();
+  }, [loadAllData]);
+
+  // Handle tab change
+  const setTab = (tabId: SettingsTabId) => {
+    setSearchParams({ tab: tabId });
+  };
+
+  // Export handler
+  const handleExport = async (compressed: boolean = true) => {
+    try {
+      setIsExporting(true);
+      setMessage(null);
+
+      const result = await exportBrainFile({ compressed, prettyPrint: !compressed });
+
+      // Add to history
+      await addHistoryEntry({
+        filename: result.filename,
+        size: result.size,
+        compressed: result.compressed,
+        type: 'manual',
+        status: 'success',
+      });
+
+      await loadAllData(); // Refresh
+
+      const sizeInfo = formatFileSize(result.size);
+      const compressionNote = compressed ? '（已压缩）' : '';
+      setMessage({
+        type: 'success',
+        text: `大脑数据导出成功！文件大小：${sizeInfo}${compressionNote}`
+      });
+    } catch (error) {
+      setMessage({ type: 'error', text: `导出失败：${error}` });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Import handler
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsImporting(true);
+      setMessage(null);
+
+      const validation = await validateBrainFile(file);
+      if (!validation.valid) {
+        setMessage({ type: 'error', text: validation.message });
+        return;
+      }
+
+      if (validation.info) {
+        setMessage({
+          type: 'info',
+          text: `发现 ${validation.info.itemCount} 项（${validation.info.fileSize}），导出时间 ${new Date(validation.info.exportDate).toLocaleString()}。正在导入...`,
+        });
+      }
+
+      const result = await importBrainFile(file);
+      if (result.success) {
+        setMessage({ type: 'success', text: result.message });
+        setTimeout(() => window.location.reload(), 2000);
+      } else {
+        setMessage({ type: 'error', text: result.message });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: `导入失败：${error}` });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  // Calendar handlers
+  const handleExportCalendar = async () => {
+    try {
+      setIsExportingCalendar(true);
+      setMessage(null);
+
+      const result = exportToICS(events);
+
+      if (!result.success || !result.data) {
+        setMessage({ type: 'error', text: result.error || '导出失败' });
+        return;
+      }
+
+      downloadICS(result.data, `calendar-${format(new Date(), 'yyyy-MM-dd')}.ics`);
+
+      const eventCount = Object.values(events).reduce((acc, arr) => acc + arr.length, 0);
+      setMessage({
+        type: 'success',
+        text: `日历导出成功！已将 ${eventCount} 个事件保存为 .ics 文件。`
+      });
+    } catch (error) {
+      setMessage({ type: 'error', text: `日历导出失败：${error}` });
+    } finally {
+      setIsExportingCalendar(false);
+    }
+  };
+
+  const handleICSFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsImportingCalendar(true);
+      setMessage(null);
+
+      const icsData = await readICSFile(file);
+      const result = importFromICS(icsData);
+
+      if (!result.success || !result.events) {
+        setMessage({ type: 'error', text: result.error || '导入失败' });
+        return;
+      }
+
+      const count = importEvents(result.events);
+
+      setMessage({
+        type: 'success',
+        text: `日历导入成功！已添加 ${count} 个事件。`
+      });
+    } catch (error) {
+      setMessage({ type: 'error', text: `日历导入失败：${error}` });
+    } finally {
+      setIsImportingCalendar(false);
+      // Reset input value to allow re-importing same file
+      event.target.value = '';
+    }
+  };
+
+  // Notification permission handler
+  const handleRequestNotificationPermission = async () => {
+    try {
+      setRequestingPermission(true);
+      const granted = await requestNotificationPermission();
+      setNotificationPermission(granted ? 'granted' : 'denied');
+      setMessage({
+        type: granted ? 'success' : 'warning',
+        text: granted
+          ? '通知已开启！之后会收到事件提醒。'
+          : '通知权限被拒绝。可稍后在浏览器设置中开启。',
+      });
+    } catch (error) {
+      log.error('Failed to request notification permission', { error });
+      setMessage({ type: 'error', text: '请求通知权限失败' });
+    } finally {
+      setRequestingPermission(false);
+    }
+  };
+
+  if (!preferences) {
+    return <div className="p-6">加载中...</div>;
+  }
+
+  return (
+    <PageContent page="settings">
+      {/* Message Banner */}
+      <AnimatePresence>
+        {message && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className={`mb-6 p-4 rounded-lg ${
+              message.type === 'success'
+                ? 'bg-status-success-bg dark:bg-status-success-bg-dark text-status-success-text dark:text-status-success-text-dark border border-status-success-border dark:border-status-success-border-dark'
+                : message.type === 'error'
+                ? 'bg-status-error-bg dark:bg-status-error-bg-dark text-status-error-text dark:text-status-error-text-dark border border-status-error-border dark:border-status-error-border-dark'
+                : message.type === 'warning'
+                ? 'bg-status-warning-bg dark:bg-status-warning-bg-dark text-status-warning-text dark:text-status-warning-text-dark border border-status-warning-border dark:border-status-warning-border-dark'
+                : 'bg-status-info-bg dark:bg-status-info-bg-dark text-status-info-text dark:text-status-info-text-dark border border-status-info-border dark:border-status-info-border-dark'
+            }`}
+          >
+            {message.text}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Backup Reminder Banner */}
+      {backupReminder?.show && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 p-4 rounded-lg bg-status-warning-bg dark:bg-status-warning-bg-dark text-status-warning-text dark:text-status-warning-text-dark border border-status-warning-border dark:border-status-warning-border-dark flex items-start gap-3"
+        >
+          <span className="text-2xl">⚠️</span>
+          <div className="flex-1">
+            <p className="font-semibold">{backupReminder.message}</p>
+            <button
+              onClick={() => handleExport(preferences.compressionEnabled)}
+              className="mt-2 text-sm underline hover:no-underline"
+            >
+              立即备份
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Main Layout: Sidebar + Content */}
+      <div className="flex gap-6">
+        {/* Tab Navigation Sidebar */}
+        <nav className="w-56 flex-shrink-0 hidden md:block">
+          <div className="sticky top-4 space-y-1">
+            {SETTINGS_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = currentTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setTab(tab.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left transition-all duration-200 ${
+                    isActive
+                      ? 'bg-accent-primary/10 text-accent-primary font-medium'
+                      : 'text-text-light-secondary dark:text-text-dark-secondary hover:bg-surface-light-elevated dark:hover:bg-surface-dark-elevated hover:text-text-light-primary dark:hover:text-text-dark-primary'
+                  }`}
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <span className="flex-1">{tab.label}</span>
+                  {isActive && (
+                    <ChevronRight className="w-4 h-4 opacity-50" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        {/* Mobile Tab Selector */}
+        <div className="md:hidden mb-4 w-full">
+          <select
+            value={currentTab}
+            onChange={(e) => setTab(e.target.value as SettingsTabId)}
+            className="w-full px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg text-text-light-primary dark:text-text-dark-primary focus:outline-none focus:ring-2 focus:ring-accent-primary"
+          >
+            {SETTINGS_TABS.map((tab) => (
+              <option key={tab.id} value={tab.id}>
+                {tab.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 min-w-0">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentTab}
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-6"
+            >
+              {/* General Settings */}
+              {currentTab === 'general' && (
+                <>
+                  <AccountSettings />
+                  <SiteWideSettings />
+                  <AppPreferencesSection />
+                  <DefaultViewsSection />
+                  <DashboardSettingsSection onOpenPresetManager={() => setShowPresetManager(true)} />
+                  <SavedLayoutsSection />
+                  <div className="bento-card p-6">
+                    <WidgetSettingsSection />
+                  </div>
+                </>
+              )}
+
+              {/* Appearance Settings */}
+              {currentTab === 'appearance' && (
+                <>
+                  <ThemeSettings />
+                  <AccentColorSection />
+                  <AdvancedCustomizationSection />
+                </>
+              )}
+
+              {/* Editor Settings */}
+              {currentTab === 'editor' && (
+                <>
+                  <div className="bento-card p-6">
+                    <DailyNotesSettings />
+                  </div>
+                  <div className="bento-card p-6">
+                    <TemplateSettings />
+                  </div>
+                  <div className="bento-card p-6">
+                    <ExportSettings />
+                  </div>
+                </>
+              )}
+
+              {/* Projects Settings */}
+              {currentTab === 'projects' && <ProjectSettings />}
+
+              {/* Time Tracking Settings */}
+              {currentTab === 'time' && (
+                <>
+                  <div className="bento-card p-6">
+                    <TimeTrackingPanelSettings />
+                  </div>
+                  <div className="bento-card p-6">
+                    <AutoTrackingSettings />
+                  </div>
+                </>
+              )}
+
+              {/* Task Settings */}
+              {currentTab === 'tasks' && (
+                <TaskManagementSettings />
+              )}
+
+              {/* Notes & Calendar Settings */}
+              {currentTab === 'notes' && (
+                <>
+                  <CalendarManagementSection />
+                  <CalendarImportExportSection
+                    isExporting={isExportingCalendar}
+                    isImporting={isImportingCalendar}
+                    onExport={handleExportCalendar}
+                    onImport={handleICSFileSelect}
+                  />
+                </>
+              )}
+
+              {/* Notifications Settings */}
+              {currentTab === 'notifications' && (
+                <>
+                  <NotificationPreferencesSection />
+                  <CalendarNotificationsSection
+                    notificationPermission={notificationPermission}
+                    requestingPermission={requestingPermission}
+                    onRequestPermission={handleRequestNotificationPermission}
+                  />
+                </>
+              )}
+
+              {/* Data Management Settings */}
+              {currentTab === 'data' && (
+                <>
+                  <DataManagementSection
+                    onMessage={setMessage}
+                  />
+                  <ImportExportPanel
+                    onMessage={setMessage}
+                  />
+                  <SelectiveExportSection
+                    onMessage={setMessage}
+                  />
+                  <MarkdownImportSection
+                    onMessage={setMessage}
+                  />
+                  <NotionImportSection
+                    onMessage={setMessage}
+                  />
+                  <div className="bento-card p-6">
+                    <ImportData />
+                  </div>
+                </>
+              )}
+
+              {/* Backup & Data Settings */}
+              {currentTab === 'backup' && (
+                <>
+                  {/* Privacy Notice */}
+                  <div className="p-4 rounded-lg bg-status-success-bg dark:bg-status-success-bg-dark border border-status-success-border dark:border-status-success-border-dark">
+                    <p className="text-sm text-status-success-text dark:text-status-success-text-dark">
+                      <strong>🔒 本地优先：</strong>数据默认只在本机 IndexedDB（容量 50GB+）。你可以选择备份到自己的阿里云盘。无追踪。
+                    </p>
+                  </div>
+
+                  {/* New Browser Warning */}
+                  {showNewBrowserWarning && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-6 rounded-lg bg-status-warning-bg dark:bg-status-warning-bg-dark border-2 border-status-warning-border dark:border-status-warning-border-dark"
+                    >
+                      <div className="flex items-start gap-4">
+                        <span className="text-3xl flex-shrink-0">⚠️</span>
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-status-warning-text dark:text-status-warning-text-dark mb-2">
+                            第一次在此浏览器使用？
+                          </h3>
+                          <p className="text-sm text-status-warning-text dark:text-status-warning-text-dark mb-3">
+                            数据按浏览器分别保存在本地。请从其他浏览器导出后再在此导入。
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => setShowNewBrowserWarning(false)}
+                              className="px-4 py-2 bg-status-warning text-white rounded-lg font-medium transition-colors"
+                            >
+                              知道了
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowNewBrowserWarning(false);
+                                localStorage.setItem('new-browser-warning-dismissed', 'true');
+                              }}
+                              className="px-4 py-2 bg-surface-light-elevated dark:bg-surface-dark-elevated text-text-light-primary dark:text-text-dark-primary rounded-lg font-medium transition-colors border border-border-light dark:border-border-dark"
+                            >
+                              不再显示
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  <QuickActionsSection
+                    timeSinceLastBackup={timeSinceLastBackup}
+                    isExporting={isExporting}
+                    isImporting={isImporting}
+                    onExport={() => handleExport(preferences.compressionEnabled)}
+                    onFileSelect={handleFileSelect}
+                  />
+
+                  <div className="bento-card p-6">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div>
+                        <h2 className="text-lg font-semibold text-text-light-primary dark:text-text-dark-primary">
+                          把工作台备份到阿里云盘
+                        </h2>
+                        <p className="text-sm text-text-light-secondary dark:text-text-dark-secondary mt-1">
+                          云盘只做备份目的地，不是文件浏览器。授权后把 .brain 备份上传到「超级工作台」文件夹。数据仍以本机为准。
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setTab('cloud')}
+                        className="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        设置云盘备份
+                      </button>
+                    </div>
+                  </div>
+
+                  <BackupHistorySection backupHistory={backupHistory} />
+
+                  <BackupOptionsSection
+                    preferences={preferences}
+                    onRefresh={loadAllData}
+                    onMessage={setMessage}
+                  />
+
+                  <AutoSaveSettings
+                    onMessage={setMessage}
+                    onRefresh={loadAllData}
+                  />
+
+                  <div className="bento-card p-6">
+                    <BackupSettings />
+                  </div>
+
+                  <div className="bento-card p-6">
+                    <ImportData />
+                  </div>
+                </>
+              )}
+
+              {/* Aliyun Drive */}
+              {currentTab === 'cloud' && (
+                <AliyunDriveSettings />
+              )}
+
+              {/* Keyboard Shortcuts */}
+              {currentTab === 'shortcuts' && (
+                <KeyboardShortcutsSection />
+              )}
+
+              {/* AI Terminal Settings */}
+              {currentTab === 'ai' && (
+                <AITerminalSettingsSection />
+              )}
+
+              {/* Advanced Settings */}
+              {currentTab === 'advanced' && (
+                <>
+                  <div className="bento-card p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-2xl">🏷️</span>
+                      <h2 className="text-lg font-semibold text-text-light-primary dark:text-text-dark-primary">
+                        自定义字段
+                      </h2>
+                    </div>
+                    <CustomFieldsSettings />
+                  </div>
+
+                  <div className="bento-card p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-2xl">👥</span>
+                      <h2 className="text-lg font-semibold text-text-light-primary dark:text-text-dark-primary">
+                        团队成员
+                      </h2>
+                    </div>
+                    <MemberSettings />
+                  </div>
+
+                  <StorageInfoSection storageInfo={storageInfo} />
+                </>
+              )}
+
+              {/* About */}
+              {currentTab === 'about' && (
+                <div className="bento-card p-6">
+                  <AboutSettings />
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Preset Manager Modal */}
+      <PresetManager
+        isOpen={showPresetManager}
+        onClose={() => setShowPresetManager(false)}
+      />
+    </PageContent>
+  );
+};

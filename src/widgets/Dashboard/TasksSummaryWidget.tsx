@@ -1,0 +1,93 @@
+/**
+ * Tasks Summary Widget
+ *
+ * Displays task statistics: Due Today, In Progress, Completed
+ * Focused widget for task overview with navigation to full Kanban view
+ */
+
+import React from 'react';
+import { BaseWidget } from './BaseWidget';
+import { useKanbanStore } from '../../stores/useKanbanStore';
+import { useNavigate } from 'react-router-dom';
+import { WidgetEmptyState } from '../../components/WidgetEmptyState';
+
+export const TasksSummaryWidget: React.FC = () => {
+  const { tasks } = useKanbanStore();
+  const navigate = useNavigate();
+
+  // Task statistics
+  const dueToday = tasks.filter((t) => {
+    if (!t.dueDate) return false;
+    const due = new Date(t.dueDate);
+    const today = new Date();
+    return due.toDateString() === today.toDateString();
+  });
+
+  // Count tasks that are in backlog or todo status
+  const todo = tasks.filter((t) => t.status === 'todo' || t.status === 'backlog');
+  const inProgress = tasks.filter((t) => t.status === 'inprogress' || t.status === 'review');
+  const completed = tasks.filter((t) => t.status === 'done');
+
+  if (tasks.length === 0) {
+    return (
+      <BaseWidget title="任务摘要" icon="📊">
+        <WidgetEmptyState
+          icon="📊"
+          message="还没有任务"
+          hint="创建第一个任务以查看进度概览"
+          action={{ label: '前往任务', onClick: () => navigate('/tasks') }}
+        />
+      </BaseWidget>
+    );
+  }
+
+  return (
+    <BaseWidget title="任务摘要" icon="📊">
+      <div className="flex flex-col h-full min-h-[160px]">
+        {/* Task Counts Grid */}
+        <div className="grid grid-cols-4 gap-3 mb-4">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-status-warning">
+              {dueToday.length}
+            </div>
+            <div className="text-xs text-text-light-secondary dark:text-text-dark-secondary mt-1">
+              今日到期
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-status-info">
+              {todo.length}
+            </div>
+            <div className="text-xs text-text-light-secondary dark:text-text-dark-secondary mt-1">
+              待办
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-accent-blue">
+              {inProgress.length}
+            </div>
+            <div className="text-xs text-text-light-secondary dark:text-text-dark-secondary mt-1">
+              进行中
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-status-success">
+              {completed.length}
+            </div>
+            <div className="text-xs text-text-light-secondary dark:text-text-dark-secondary mt-1">
+              已完成
+            </div>
+          </div>
+        </div>
+
+        {/* View All Button - pushed to bottom */}
+        <button
+          onClick={() => navigate('/tasks')}
+          className="w-full mt-auto px-4 py-2.5 bg-accent-blue hover:bg-accent-blue-hover text-white rounded-button transition-all duration-standard ease-smooth text-sm font-medium"
+        >
+          查看全部任务 →
+        </button>
+      </div>
+    </BaseWidget>
+  );
+};

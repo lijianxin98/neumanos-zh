@@ -1,0 +1,745 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+/* ==================== TAILWIND V4 THEME TOKENS ==================== */
+/* Static design tokens only — colors are handled by runtime CSS variables below */
+@theme {
+  --font-sans:
+    Inter, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto,
+    sans-serif;
+
+  --text-xs: 10px;
+  --text-xs--line-height: 14px;
+  --text-sm: 12px;
+  --text-sm--line-height: 16px;
+  --text-base: 14px;
+  --text-base--line-height: 20px;
+  --text-md: 16px;
+  --text-md--line-height: 24px;
+  --text-lg: 20px;
+  --text-lg--line-height: 28px;
+  --text-xl: 24px;
+  --text-xl--line-height: 32px;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --shadow-modal: 0 8px 24px rgba(0, 0, 0, 0.16);
+
+  --spacing-8pt: 8px;
+  --spacing-16pt: 16px;
+  --spacing-24pt: 24px;
+  --spacing-32pt: 32px;
+  --spacing-40pt: 40px;
+  --spacing-48pt: 48px;
+
+  --radius-card: 12px;
+  --radius-button: 8px;
+  --radius-input: 8px;
+
+  --transition-duration-standard: 200ms;
+
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Color tokens used by Tailwind utilities (bg-surface-light, text-text-light-primary, etc.)
+     These reference the runtime CSS variables below, so themes can override them dynamically. */
+  --color-surface-light: var(--surface-light);
+  --color-surface-light-elevated: var(--surface-light-elevated);
+  --color-surface-dark: var(--surface-dark);
+  --color-surface-dark-elevated: var(--surface-dark-elevated);
+
+  --color-text-light-primary: var(--text-light-primary);
+  --color-text-light-secondary: var(--text-light-secondary);
+  --color-text-dark-primary: var(--text-dark-primary);
+  --color-text-dark-secondary: var(--text-dark-secondary);
+
+  --color-border-light: var(--border-light);
+  --color-border-dark: var(--border-dark);
+
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-blue-hover: var(--accent-blue-hover);
+  --color-accent-magenta: var(--accent-magenta);
+  --color-accent-magenta-hover: var(--accent-magenta-hover);
+  --color-accent-cyan: var(--accent-cyan);
+  --color-accent-cyan-hover: var(--accent-cyan-hover);
+  --color-accent-green: var(--accent-green);
+  --color-accent-green-hover: var(--accent-green-hover);
+  --color-accent-neon-green: var(--accent-neon-green);
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-purple-hover: var(--accent-purple-hover);
+  --color-accent-red: var(--accent-red);
+  --color-accent-red-hover: var(--accent-red-hover);
+  --color-accent-yellow: var(--accent-yellow);
+  --color-accent-yellow-hover: var(--accent-yellow-hover);
+  --color-accent-orange: var(--accent-orange);
+  --color-accent-orange-hover: var(--accent-orange-hover);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-primary-hover: var(--accent-primary-hover);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-accent-secondary-hover: var(--accent-secondary-hover);
+
+  --color-status-success: var(--status-success);
+  --color-status-success-bg: #d1fae5;
+  --color-status-success-bg-dark: #064e3b;
+  --color-status-success-text: #065f46;
+  --color-status-success-text-dark: #6ee7b7;
+  --color-status-success-border: #a7f3d0;
+  --color-status-success-border-dark: #065f46;
+
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-bg: #fef3c7;
+  --color-status-warning-bg-dark: #78350f;
+  --color-status-warning-text: #92400e;
+  --color-status-warning-text-dark: #fcd34d;
+  --color-status-warning-border: #fde68a;
+  --color-status-warning-border-dark: #92400e;
+
+  --color-status-error: var(--status-error);
+  --color-status-error-bg: #fee2e2;
+  --color-status-error-bg-dark: #7f1d1d;
+  --color-status-error-text: #991b1b;
+  --color-status-error-text-dark: #fca5a5;
+  --color-status-error-border: #fecaca;
+  --color-status-error-border-dark: #991b1b;
+
+  --color-status-info: var(--status-info);
+  --color-status-info-bg: #dbeafe;
+  --color-status-info-bg-dark: #1e3a8a;
+  --color-status-info-text: #1e40af;
+  --color-status-info-text-dark: #93c5fd;
+  --color-status-info-border: #bfdbfe;
+  --color-status-info-border-dark: #1e40af;
+
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #e5e5e5;
+  --color-neutral-300: #d4d4d4;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+/* ==================== CSS DESIGN TOKENS ==================== */
+/* Default theme values — brand themes override via injected <style id="neumanos-theme-vars"> */
+/* Theme definitions: src/config/themes/ */
+
+:root {
+  /* Surface colors — Evergreen dark mode defaults (new default theme) */
+  --surface-light: #FAFDF7;
+  --surface-light-elevated: #F0F5EC;
+  --surface-dark: #060E06;
+  --surface-dark-elevated: #0E1A0E;
+
+  /* Text colors (WCAG AA compliant: 4.5:1 minimum contrast ratio) */
+  --text-light-primary: #0A140A;
+  --text-light-secondary: #2D4A2D;
+  --text-light-tertiary: #4A6B4A;
+  --text-dark-primary: #F5FAF0;
+  --text-dark-secondary: #B8D4A8;
+  --text-dark-tertiary: #8AAF78;
+
+  /* Border colors */
+  --border-light: #D4E8C8;
+  --border-dark: rgba(22, 101, 52, 0.20);
+
+  /* Accent colors — Evergreen dark mode palette */
+  --accent-blue: #60A0E8;
+  --accent-blue-hover: #4A90D8;
+  --accent-magenta: #D868A8;
+  --accent-magenta-hover: #E878B8;
+  --accent-cyan: #40E8D0;
+  --accent-cyan-hover: #50F0E0;
+
+  /* Extended accent colors */
+  --accent-green: #22C55E;
+  --accent-green-hover: #4ADE80;
+  --accent-neon-green: #4ADE80;
+  --accent-purple: #9575CD;
+  --accent-purple-hover: #AB8FDD;
+  --accent-red: #E04040;
+  --accent-red-hover: #E86060;
+  --accent-yellow: #E0A020;
+  --accent-yellow-hover: #F0B040;
+  --accent-orange: #D48020;
+  --accent-orange-hover: #E49030;
+
+  /* Semantic accent roles — Evergreen identity colors (dark mode) */
+  --accent-primary: #22C55E;
+  --accent-primary-hover: #4ADE80;
+  --accent-secondary: #E0A020;
+  --accent-secondary-hover: #F0B040;
+
+  /* Status colors */
+  --status-success: #22C55E;
+  --status-warning: #E0A020;
+  --status-error: #E04040;
+  --status-info: #60A0E8;
+}
+
+/* ==================== COMPONENT CLASSES ==================== */
+@utility bento-card {
+  @apply bg-surface-light dark:bg-surface-dark-elevated;
+  @apply border border-border-light dark:border-border-dark;
+  @apply rounded-card shadow-card;
+  transition:
+    box-shadow 200ms ease,
+    transform 200ms ease;
+
+  &:hover {
+    @apply shadow-card-hover;
+    transform: translateY(-1px);
+  }
+}
+
+/* ==================== CUSTOM UTILITY CLASSES ==================== */
+/* Only utilities that Tailwind v4 can't auto-generate from @theme */
+
+/* Neon pulse animation for status indicators */
+@utility animate-neon-pulse {
+  animation: neon-pulse 2s ease-in-out infinite;
+}
+
+/* Gradient button backgrounds */
+@utility bg-gradient-button-primary {
+  background-image: linear-gradient(to right, var(--accent-primary), var(--accent-secondary));
+}
+@utility bg-gradient-button-danger {
+  background-image: linear-gradient(to right, var(--accent-red), var(--accent-orange));
+}
+@utility bg-gradient-button-success {
+  background-image: linear-gradient(to right, var(--accent-green), var(--accent-cyan));
+}
+
+/* Scrollbar thin utility */
+@utility scrollbar-thin {
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--border-light);
+    border-radius: 3px;
+  }
+  :is(.dark &)::-webkit-scrollbar-thumb {
+    background-color: var(--border-dark);
+  }
+}
+
+/* Dashboard grid layout — purely structural, layout applied via Tailwind classes in Dashboard.tsx */
+
+/* ==================== BACKGROUND CONTRAST UTILITIES ==================== */
+@utility dark-content {
+  & h1, & h2, & h3, & p,
+  & span:not([class*='text-white']):not([class*='bg-']) {
+    color: var(--text-light-primary) !important;
+  }
+  & .text-text-light-secondary,
+  & .text-text-dark-secondary {
+    color: var(--text-light-secondary) !important;
+  }
+  & .bg-surface-light-elevated {
+    background-color: rgba(0, 0, 0, 0.1) !important;
+  }
+}
+
+@utility light-content {
+  & h1, & h2, & h3, & p,
+  & span:not([class*='text-black']):not([class*='bg-']) {
+    color: var(--text-dark-primary) !important;
+  }
+  & .text-text-light-secondary,
+  & .text-text-dark-secondary {
+    color: var(--text-dark-secondary) !important;
+  }
+  & .bg-surface-light-elevated {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+  }
+}
+
+/* ==================== KEYFRAME ANIMATIONS ==================== */
+@keyframes neon-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px var(--accent-neon-green),
+                0 0 8px var(--accent-neon-green),
+                0 0 12px rgba(57, 255, 20, 0.4);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 2px var(--accent-neon-green),
+                0 0 4px var(--accent-neon-green),
+                0 0 6px rgba(57, 255, 20, 0.2);
+    opacity: 0.85;
+  }
+}
+
+@keyframes voice-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+}
+
+.voice-pulse {
+  animation: voice-pulse 1.5s ease-in-out infinite;
+}
+
+/* ==================== BASE STYLES ==================== */
+@layer base {
+  html, body {
+    overflow-x: hidden;
+  }
+
+  /* Theme transition system */
+  html {
+    transition-property: background-color, color;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html.theme-transitioning,
+  html.theme-transitioning *,
+  html.theme-transitioning *::before,
+  html.theme-transitioning *::after {
+    transition-property: background-color, border-color, color, fill, stroke, box-shadow !important;
+    transition-duration: 150ms !important;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html,
+    html.theme-transitioning,
+    html.theme-transitioning *,
+    html.theme-transitioning *::before,
+    html.theme-transitioning *::after {
+      transition-duration: 0ms !important;
+    }
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    @apply bg-surface-light dark:bg-surface-dark;
+    @apply text-text-light-primary dark:text-text-dark-primary;
+  }
+
+  /* Typography Hierarchy */
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  h2 {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+
+  h3 {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  h4 {
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  h5, h6 {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  p {
+    line-height: 1.6;
+  }
+
+  strong, b {
+    font-weight: 600;
+  }
+
+  .font-emphasis {
+    font-weight: 500;
+  }
+
+  /* Focus styles for accessibility (WCAG 2.2 compliant) */
+  *:focus-visible {
+    @apply outline-2 outline-accent-blue-hover;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Global scrollbar styling */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.4);
+    border-radius: 3px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(128, 128, 128, 0.6);
+  }
+
+  .dark *::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
+
+  .dark * {
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Mobile optimizations */
+  button, a, input, textarea, select {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input, textarea, select {
+    font-size: max(16px, 1em);
+  }
+
+  /* Text selection */
+  ::selection {
+    background-color: var(--accent-primary);
+    color: white;
+  }
+
+  /* Global checkbox styling */
+  input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--border-light);
+    background-color: var(--surface-light);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+  }
+
+  input[type="checkbox"]:checked {
+    background-color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+    background-size: 100% 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+  }
+
+  .dark input[type="checkbox"] {
+    background-color: var(--surface-dark-elevated);
+    border-color: var(--border-dark);
+  }
+
+  /* Global radio button styling */
+  input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    border: 1px solid var(--border-light);
+    background-color: var(--surface-light);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+  }
+
+  input[type="radio"]:checked {
+    background-color: var(--surface-light);
+    border-color: var(--accent-primary);
+    border-width: 4px;
+  }
+
+  input[type="radio"]:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+  }
+
+  .dark input[type="radio"] {
+    background-color: var(--surface-dark-elevated);
+    border-color: var(--border-dark);
+  }
+
+  /* Dynamic viewport height for Mobile Safari */
+  .full-height {
+    height: 100dvh;
+  }
+
+  /* Wiki Link Styles */
+  .wiki-link {
+    cursor: pointer;
+    text-decoration: underline;
+    font-weight: 500;
+  }
+
+  .wiki-link-valid {
+    color: var(--accent-cyan);
+    text-decoration: underline;
+    text-decoration-style: solid;
+  }
+
+  .wiki-link-valid:hover {
+    color: var(--accent-cyan-hover);
+  }
+
+  .wiki-link-broken {
+    color: var(--accent-red);
+    text-decoration: underline;
+    text-decoration-style: dashed;
+  }
+
+  .wiki-link-broken:hover {
+    color: var(--accent-red-hover);
+  }
+
+  /* Hashtag Styles */
+  .hashtag {
+    cursor: pointer;
+    font-weight: 500;
+    @apply bg-accent-cyan/10 dark:bg-accent-cyan/20;
+    @apply text-accent-cyan;
+    @apply rounded-sm px-1;
+    transition: all 0.15s ease;
+  }
+
+  .hashtag:hover {
+    @apply bg-accent-cyan/20 dark:bg-accent-cyan/30;
+    @apply text-accent-cyan;
+    transform: translateY(-1px);
+  }
+}
+
+/* ==================== PRINT STYLES ==================== */
+@media print {
+  header,
+  nav,
+  aside,
+  footer,
+  .sidebar,
+  button.no-print,
+  .no-print {
+    display: none !important;
+  }
+
+  body,
+  html {
+    margin: 0;
+    padding: 0;
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  * {
+    background: white !important;
+    color: black !important;
+    border-color: #333 !important;
+  }
+
+  .calendar-container,
+  [class*="calendar"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 1cm !important;
+    page-break-inside: avoid;
+  }
+
+  table,
+  [class*="grid"] {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th,
+  td,
+  [class*="day"],
+  [class*="event"] {
+    border: 1px solid #333 !important;
+    padding: 0.3cm !important;
+    font-size: 10pt !important;
+    page-break-inside: avoid;
+  }
+
+  [class*="event"],
+  [class*="item"] {
+    background: #f0f0f0 !important;
+    border: 1px solid #666 !important;
+    padding: 2mm !important;
+    margin: 1mm 0 !important;
+    font-size: 9pt !important;
+  }
+
+  @page {
+    size: landscape;
+    margin: 1cm;
+  }
+}
+
+/* ==================== LEXICAL EDITOR: CHECKLIST STYLES ==================== */
+
+.editor-checklist {
+  list-style-type: none !important;
+  padding-left: 0 !important;
+}
+
+.editor-checklist-item {
+  position: relative;
+  padding-left: 28px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.editor-checklist-item::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 5px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-light);
+  border-radius: 4px;
+  background: transparent;
+  transition: all 150ms ease;
+}
+
+:is(.dark *) .editor-checklist-item::before {
+  border-color: var(--border-dark);
+}
+
+.editor-checklist-item--checked::before {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+  background-size: 12px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.editor-checklist-item--checked {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.editor-checklist-item:hover::before {
+  border-color: var(--accent-primary);
+}
+
+/* ==================== AI TERMINAL: CODE BLOCK SYNTAX HIGHLIGHTING ==================== */
+
+.code-block-wrapper .token-keyword {
+  color: #c678dd;
+  font-weight: 600;
+}
+
+.code-block-wrapper .token-string {
+  color: #98c379;
+}
+
+.code-block-wrapper .token-comment {
+  color: #5c6370;
+  font-style: italic;
+}
+
+.code-block-wrapper .token-number {
+  color: #d19a66;
+}
+
+.code-block-wrapper .token-function {
+  color: #61afef;
+}
+
+.code-block-wrapper .token-operator {
+  color: #56b6c2;
+}
+
+.code-block-wrapper .token-type {
+  color: #e5c07b;
+  font-style: italic;
+}
+
+.code-block-wrapper .token-property {
+  color: #e06c75;
+}
+
+/* ==================== DOCUMENT INLINE COMMENTS ==================== */
+
+.doc-comment-highlight {
+  background-color: rgba(251, 191, 36, 0.25);
+  border-bottom: 2px solid rgb(251, 191, 36);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.doc-comment-highlight:hover {
+  background-color: rgba(251, 191, 36, 0.4);
+}
+
+.dark .doc-comment-highlight {
+  background-color: rgba(251, 191, 36, 0.15);
+  border-bottom-color: rgba(251, 191, 36, 0.6);
+}
+
+.dark .doc-comment-highlight:hover {
+  background-color: rgba(251, 191, 36, 0.3);
+}

@@ -1,0 +1,256 @@
+/**
+ * Backup Preferences and History Service
+ *
+ * Manages backup settings, history, and reminders
+ */
+
+import { indexedDBService } from './indexedDB';
+import { logger } from './logger';
+
+const log = logger.module('BackupPreferences');
+
+export interface BackupHistoryEntry {
+  id: string;
+  timestamp: string;
+  filename: string;
+  size: number;
+  compressed: boolean;
+  type: 'manual' | 'auto' | 'cloud';
+  destination?: string; // 'local', 'google-drive', 'dropbox', etc.
+  status: 'success' | 'failed';
+  errorMessage?: string;
+  attempts?: number;
+  details?: string;
+}
+
+export interface BackupPreferences {
+  // Auto-save settings
+  autoSaveEnabled: boolean;
+  autoSaveInterval: number; // in minutes
+  autoSaveDirectory?: string; // serialized FileSystemDirectoryHandle
+  lastAutoSave?: string;
+
+  // File naming and versioning
+  customFilename?: string; // User's custom filename (default: "NeumanOS")
+  versionCount?: number; // Number of backup versions to keep (default: 7)
+
+  // Compression settings
+  compressionEnabled: boolean;
+
+  // Cloud sync settings
+  cloudSyncEnabled: boolean;
+  cloudProvider?: 'google-drive' | 'dropbox' | 'onedrive';
+  driveParentFolderId?: string; // User-chosen parent folder in Drive
+  driveParentFolderName?: string; // Display name of parent folder
+  driveBackupFolderId?: string; // Created "NeumanOS 备份" folder ID
+
+  // Reminder settings
+  reminderEnabled: boolean;
+  reminderDays: number; // Remind after X days without backup
+
+  // Last backup info
+  lastManualBackup?: string;
+  lastBackupType?: 'manual' | 'auto' | 'cloud';
+
+  // History
+  backupHistory: BackupHistoryEntry[];
+  maxHistoryEntries: number;
+}
+
+const PREFERENCES_KEY = 'backup-preferences';
+const DEFAULT_PREFERENCES: BackupPreferences = {
+  autoSaveEnabled: false,
+  autoSaveInterval: 60, // 1 hour
+  customFilename: 'NeumanOS', // Default filename
+  versionCount: 7, // Keep last 7 versions
+  compressionEnabled: true,
+  cloudSyncEnabled: false,
+  reminderEnabled: true,
+  reminderDays: 7,
+  backupHistory: [],
+  maxHistoryEntries: 10,
+};
+
+/**
+ * Load backup preferences
+ */
+export const loadPreferences = async (): Promise<BackupPreferences> => {
+  try {
+    const stored = await indexedDBService.getItem(PREFERENCES_KEY);
+    if (stored) {
+      const preferences = JSON.parse(stored);
+      const normalizedHistory = (preferences.backupHistory || []).map((entry: BackupHistoryEntry) => ({
+        ...entry,
+        status: entry.status ?? 'success',
+      }));
+      // Merge with defaults to ensure new fields exist
+      return { ...DEFAULT_PREFERENCES, ...preferences, backupHistory: normalizedHistory };
+    }
+  } catch (error) {
+    log.error('Failed to load backup preferences', { error });
+  }
+  return DEFAULT_PREFERENCES;
+};
+
+/**
+ * Save backup preferences
+ */
+export const savePreferences = async (preferences: Partial<BackupPreferences>): Promise<void> => {
+  try {
+    const current = await loadPreferences();
+    const updated = { ...current, ...preferences };
+    await indexedDBService.setItem(PREFERENCES_KEY, JSON.stringify(updated));
+    log.debug('Backup preferences saved');
+  } catch (error) {
+    log.error('Failed to save backup preferences', { error });
+    throw error;
+  }
+};
+
+/**
+ * Add entry to backup history
+ */
+export const addHistoryEntry = async (
+  entry: Omit<BackupHistoryEntry, 'id' | 'timestamp' | 'status'> & { status?: BackupHistoryEntry['status'] }
+): Promise<void> => {
+  try {
+    const preferences = await loadPreferences();
+
+    const historyEntry: BackupHistoryEntry = {
+      ...entry,
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      status: entry.status ?? 'success',
+    };
+
+    // Add to history
+    const history = [historyEntry, ...preferences.backupHistory];
+
+    // Keep only max entries
+    const trimmedHistory = history.slice(0, preferences.maxHistoryEntries);
+
+    // Update last backup info
+    const updates: Partial<BackupPreferences> = {
+      backupHistory: trimmedHistory,
+      lastBackupType: entry.type,
+    };
+
+    if (entry.type === 'manual') {
+      updates.lastManualBackup = historyEntry.timestamp;
+    } else if (entry.type === 'auto') {
+      updates.lastAutoSave = historyEntry.timestamp;
+    }
+
+    await savePreferences(updates);
+    log.debug('Backup history updated');
+  } catch (error) {
+    log.error('Failed to add history entry', { error });
+  }
+};
+
+/**
+ * Get backup history
+ */
+export const getBackupHistory = async (): Promise<BackupHistoryEntry[]> => {
+  const preferences = await loadPreferences();
+  return preferences.backupHistory;
+};
+
+/**
+ * Clear backup history
+ */
+export const clearBackupHistory = async (): Promise<void> => {
+  await savePreferences({ backupHistory: [] });
+};
+
+/**
+ * Check if backup reminder should be shown
+ */
+export const shouldShowBackupReminder = async (): Promise<{
+  show: boolean;
+  daysSinceLastBackup?: number;
+  message?: string;
+}> => {
+  const preferences = await loadPreferences();
+
+  if (!preferences.reminderEnabled) {
+    return { show: false };
+  }
+
+  // Find most recent backup
+  const lastBackupTime = preferences.lastManualBackup || preferences.lastAutoSave;
+
+  if (!lastBackupTime) {
+    return {
+      show: true,
+      message: '未找到备份。先建一份备份保护数据。',
+    };
+  }
+
+  const lastBackup = new Date(lastBackupTime);
+  const now = new Date();
+  const daysSince = Math.floor((now.getTime() - lastBackup.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysSince >= preferences.reminderDays) {
+    return {
+      show: true,
+      daysSinceLastBackup: daysSince,
+      message: `距离上次备份已有 ${daysSince} 天，该再备份一次了！`,
+    };
+  }
+
+  return { show: false };
+};
+
+/**
+ * Get time since last backup (human readable)
+ */
+export const getTimeSinceLastBackup = async (): Promise<string | null> => {
+  const preferences = await loadPreferences();
+  const lastBackupTime = preferences.lastManualBackup || preferences.lastAutoSave;
+
+  if (!lastBackupTime) {
+    return null;
+  }
+
+  const lastBackup = new Date(lastBackupTime);
+  const now = new Date();
+  const diffMs = now.getTime() - lastBackup.getTime();
+
+  const minutes = Math.floor(diffMs / (1000 * 60));
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    return `${days} 天前`;
+  } else if (hours > 0) {
+    return `${hours} 小时前`;
+  } else if (minutes > 0) {
+    return `${minutes} 分钟前`;
+  } else {
+    return '刚刚';
+  }
+};
+
+/**
+ * Enable auto-save
+ */
+export const enableAutoSave = async (_directoryHandle: FileSystemDirectoryHandle): Promise<void> => {
+  // Note: We can't actually serialize FileSystemDirectoryHandle
+  // So we'll just enable the feature and require users to re-select on page load
+  // In a real app, you'd request persistent permissions
+  await savePreferences({
+    autoSaveEnabled: true,
+    lastAutoSave: new Date().toISOString(),
+  });
+};
+
+/**
+ * Disable auto-save
+ */
+export const disableAutoSave = async (): Promise<void> => {
+  await savePreferences({
+    autoSaveEnabled: false,
+    autoSaveDirectory: undefined,
+  });
+};

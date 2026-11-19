@@ -1,0 +1,270 @@
+/**
+ * Keyboard Shortcuts Service
+ *
+ * Utilities for keyboard shortcut handling:
+ * - Platform-aware key detection (Cmd vs Ctrl)
+ * - Key combination parsing and matching
+ * - Input field detection
+ */
+
+// Platform detection
+export const isMac =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+
+/**
+ * Modifier keys normalized across platforms
+ * 'mod' = Cmd on Mac, Ctrl on Windows/Linux
+ */
+export type ModifierKey = 'mod' | 'ctrl' | 'alt' | 'shift' | 'meta';
+export type ShortcutContext = 'global' | 'kanban' | 'notes' | 'calendar' | 'diagram' | 'modal';
+
+export interface ShortcutDefinition {
+  id: string;
+  keys: string[]; // e.g., ['mod', 'k'] or ['c'] or ['g', 't']
+  label: string;
+  description?: string;
+  context?: ShortcutContext;
+  allowInInput?: boolean;
+  priority?: number; // Higher wins in conflicts
+}
+
+/**
+ * Parse a keyboard event into normalized key array
+ * Returns array like ['mod', 'shift', 'k']
+ */
+export function parseKeyboardEvent(e: KeyboardEvent): string[] {
+  const keys: string[] = [];
+
+  // Modifiers first (consistent order)
+  if (e.metaKey || e.ctrlKey) {
+    // Use 'mod' for platform-agnostic modifier
+    keys.push('mod');
+  }
+  if (e.altKey) keys.push('alt');
+  if (e.shiftKey) keys.push('shift');
+
+  // Main key (lowercase, handle special cases)
+  const key = normalizeKey(e.key);
+  if (key && !['Control', 'Meta', 'Alt', 'Shift'].includes(e.key)) {
+    keys.push(key);
+  }
+
+  return keys;
+}
+
+/**
+ * Normalize key names to consistent format
+ */
+function normalizeKey(key: string): string {
+  const keyMap: Record<string, string> = {
+    ' ': 'space',
+    Escape: 'escape',
+    Enter: 'enter',
+    ArrowUp: 'up',
+    ArrowDown: 'down',
+    ArrowLeft: 'left',
+    ArrowRight: 'right',
+    Backspace: 'backspace',
+    Delete: 'delete',
+    Tab: 'tab',
+  };
+
+  return keyMap[key] || key.toLowerCase();
+}
+
+/**
+ * Check if two key arrays match
+ */
+export function keysMatch(pressed: string[], shortcut: string[]): boolean {
+  if (pressed.length !== shortcut.length) return false;
+
+  // Sort both arrays for comparison (modifiers can be in any order)
+  const sortedPressed = [...pressed].sort();
+  const sortedShortcut = [...shortcut].sort();
+
+  return sortedPressed.every((key, i) => key === sortedShortcut[i]);
+}
+
+/**
+ * Check if event target is an input element where shortcuts should be blocked
+ */
+export function isInputElement(target: EventTarget | null): boolean {
+  if (!target || !(target instanceof Element)) return false;
+
+  const tagName = target.tagName.toLowerCase();
+
+  // Standard form elements
+  if (['input', 'textarea', 'select'].includes(tagName)) {
+    return true;
+  }
+
+  // Contenteditable elements (including Lexical editor)
+  if (target.getAttribute('contenteditable') === 'true') {
+    return true;
+  }
+
+  // Check if inside a contenteditable parent (Lexical nests deeply)
+  if (target.closest('[contenteditable="true"]')) {
+    return true;
+  }
+
+  // Rich text editor containers
+  if (target.closest('.lexical-editor, .ProseMirror, .tiptap')) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Format shortcut keys for display
+ * ['mod', 'shift', 'k'] => '⌘⇧K' (Mac) or 'Ctrl+Shift+K' (Windows)
+ */
+export function formatShortcut(keys: string[]): string {
+  if (isMac) {
+    return keys
+      .map((key) => {
+        switch (key) {
+          case 'mod':
+            return '⌘';
+          case 'ctrl':
+            return '⌃';
+          case 'alt':
+            return '⌥';
+          case 'shift':
+            return '⇧';
+          case 'enter':
+            return '↵';
+          case 'escape':
+            return 'Esc';
+          case 'space':
+            return 'Space';
+          case 'up':
+            return '↑';
+          case 'down':
+            return '↓';
+          case 'left':
+            return '←';
+          case 'right':
+            return '→';
+          default:
+            return key.toUpperCase();
+        }
+      })
+      .join('');
+  }
+
+  // Windows/Linux format
+  return keys
+    .map((key) => {
+      switch (key) {
+        case 'mod':
+          return 'Ctrl';
+        case 'ctrl':
+          return 'Ctrl';
+        case 'alt':
+          return 'Alt';
+        case 'shift':
+          return 'Shift';
+        case 'enter':
+          return 'Enter';
+        case 'escape':
+          return 'Esc';
+        case 'space':
+          return 'Space';
+        default:
+          return key.toUpperCase();
+      }
+    })
+    .join('+');
+}
+
+/**
+ * Built-in global shortcuts - can be extended
+ * These are the default shortcuts registered at app init
+ */
+export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
+  {
+    id: 'open-command-palette',
+    keys: ['mod', 'k'],
+    label: '打开命令面板',
+    description: '搜索笔记、任务并执行操作',
+    context: 'global',
+    priority: 100,
+  },
+  {
+    id: 'open-help',
+    keys: ['f1'],
+    label: '打开帮助',
+    description: '显示键盘快捷键与文档',
+    context: 'global',
+    priority: 50,
+  },
+  {
+    id: 'open-help-alt',
+    keys: ['mod', '/'],
+    label: '打开帮助',
+    description: '显示键盘快捷键与文档',
+    context: 'global',
+    priority: 50,
+  },
+  {
+    id: 'toggle-project-context',
+    keys: ['mod', 'shift', 'p'],
+    label: '切换项目上下文',
+    description: '打开项目上下文下拉菜单',
+    context: 'global',
+    priority: 50,
+  },
+  {
+    id: 'toggle-ai-terminal',
+    keys: ['mod', 'shift', 'a'],
+    label: '切换 AI 终端',
+    description: '打开或关闭 AI 终端',
+    context: 'global',
+    priority: 60,
+  },
+  {
+    id: 'toggle-sidebar',
+    keys: ['mod', 'b'],
+    label: '切换侧边栏',
+    description: '显示或隐藏侧边栏',
+    context: 'global',
+    priority: 40,
+  },
+  {
+    id: 'create-new-note',
+    keys: ['mod', 'n'],
+    label: '新建笔记',
+    description: '创建新笔记',
+    context: 'global',
+    priority: 45,
+  },
+  {
+    id: 'create-new-task',
+    keys: ['mod', 't'],
+    label: '新建任务',
+    description: '快速添加新任务',
+    context: 'global',
+    priority: 45,
+  },
+  {
+    id: 'create-new-event',
+    keys: ['mod', 'e'],
+    label: '新建事件',
+    description: '前往日历创建事件',
+    context: 'global',
+    priority: 45,
+  },
+];
+
+/**
+ * Sequence detection for chained shortcuts like 'g t' (go to tasks)
+ * This is a placeholder for future implementation
+ */
+export interface ShortcutSequence {
+  id: string;
+  sequence: string[][]; // e.g., [['g'], ['t']] for 'g then t'
+  label: string;
+  timeout?: number; // ms to wait between keys, default 1000
+}
